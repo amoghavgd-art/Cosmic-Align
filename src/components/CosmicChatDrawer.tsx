@@ -123,16 +123,21 @@ export const CosmicChatDrawer: React.FC<CosmicChatDrawerProps> = ({
         }),
       });
 
-      const data = await res.json();
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Cosmic communications offline. Please retry in a moment.');
+      }
 
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to reach cosmic intelligence');
+      if (!res.ok && !data?.reply) {
+        throw new Error(data?.error || 'Failed to reach cosmic intelligence');
       }
 
       const botMessage: Message = {
         id: `bot-${Date.now()}`,
         role: 'model',
-        content: data.reply,
+        content: data.reply || data.error || 'Cosmic connection restored.',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 
