@@ -1,0 +1,7 @@
+{
+  "name": "Cosmic Align: Live Solar System & Eclipse Observatory",
+  "description": "Interactive vector poster-style live solar system broadcasting real-time planetary alignments, moon orbits, comprehensive planetary facts, and real shadow eclipse modes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
