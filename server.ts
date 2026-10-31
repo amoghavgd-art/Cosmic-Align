@@ -108,17 +108,14 @@ app.post('/api/chat', async (req, res) => {
     const userQuery = lastMessage?.content || '';
 
     // Check for configured API key dynamically
-    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.NETLIFY_AI_GATEWAY_KEY;
+    const baseUrl = process.env.GOOGLE_GEMINI_BASE_URL || (process.env.NETLIFY_AI_GATEWAY_URL ? process.env.NETLIFY_AI_GATEWAY_URL.replace(/\/$/, '') : undefined);
 
     if (apiKey && apiKey !== 'MY_GEMINI_API_KEY') {
       try {
         const aiClient = new GoogleGenAI({
           apiKey: apiKey,
-          httpOptions: {
-            headers: {
-              'User-Agent': 'aistudio-build',
-            },
-          },
+          ...(baseUrl ? { httpOptions: { baseUrl } } : {}),
         });
 
         const selectedModel = modelName || 'gemini-3.8-flash';
@@ -128,14 +125,38 @@ You answer user questions about the Solar System, planets, moons, orbital mechan
 Keep answers engaging, accessible, and grounded in real astrophysics. Use formatting like bullet points or bold text where it adds clarity.
 ${context ? `\nCurrent Observatory State:\n${context}` : ''}`;
 
-        const contents = messages.map((m: { role: string; content: string }) => ({
-          role: m.role === 'model' || m.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: m.content }],
-        }));
+        const normalizedMessages: Array<{ role: 'user' | 'model'; parts: [{ text: string }] }> = [];
+        for (const m of messages) {
+          const role: 'user' | 'model' = (m.role === 'model' || m.role === 'assistant') ? 'model' : 'user';
+          const text = typeof m.content === 'string' ? m.content.trim() : '';
+          if (!text) continue;
+
+          // Strip initial welcome message from model
+          if (normalizedMessages.length === 0 && role === 'model') {
+            continue;
+          }
+
+          const prev = normalizedMessages[normalizedMessages.length - 1];
+          if (prev && prev.role === role) {
+            prev.parts[0].text += `\n\n${text}`;
+          } else {
+            normalizedMessages.push({
+              role,
+              parts: [{ text }],
+            });
+          }
+        }
+
+        if (normalizedMessages.length === 0) {
+          normalizedMessages.push({
+            role: 'user',
+            parts: [{ text: userQuery || 'Tell me about the Solar System' }],
+          });
+        }
 
         const response = await aiClient.models.generateContent({
           model: selectedModel,
-          contents: contents,
+          contents: normalizedMessages,
           config: {
             systemInstruction: systemInstruction,
           },
